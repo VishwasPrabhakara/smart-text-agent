@@ -1,0 +1,76 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 940 560" font-family="system-ui, -apple-system, sans-serif">
+  <defs>
+    <marker id="arr2" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="6" markerHeight="6" orient="auto">
+      <path d="M0,0 L10,5 L0,10 z" fill="#475569"/>
+    </marker>
+    <style>
+      .box{fill:#fff;stroke:#334155;stroke-width:1.5;rx:8;ry:8}
+      .user{fill:#dbeafe;stroke:#1d4ed8}
+      .ui{fill:#dcfce7;stroke:#15803d}
+      .agent{fill:#ede9fe;stroke:#6d28d9}
+      .tool{fill:#fce7f3;stroke:#be185d}
+      .route{fill:#ffe4e6;stroke:#9f1239}
+      .ext{fill:#fef3c7;stroke:#a16207}
+      .lbl{font-size:14px;fill:#0f172a;font-weight:600;text-anchor:middle}
+      .sub{font-size:11px;fill:#475569;text-anchor:middle}
+      .arrow{stroke:#475569;stroke-width:1.5;fill:none;marker-end:url(#arr2)}
+    </style>
+  </defs>
+
+  <rect x="390" y="20" width="160" height="50" class="box user"/>
+  <text x="470" y="42" class="lbl">User</text>
+  <text x="470" y="58" class="sub">Text query</text>
+
+  <rect x="370" y="100" width="200" height="55" class="box ui"/>
+  <text x="470" y="124" class="lbl">ADK Web UI</text>
+  <text x="470" y="142" class="sub">Cloud Run · Docker</text>
+
+  <rect x="320" y="185" width="300" height="60" class="box agent"/>
+  <text x="470" y="211" class="lbl">SmartText Agent — Gemini 2.5 Flash</text>
+  <text x="470" y="229" class="sub">Trigger-word detection · Tool selection</text>
+
+  <rect x="385" y="285" width="170" height="50" class="box route"/>
+  <text x="470" y="307" class="lbl">route_request</text>
+  <text x="470" y="324" class="sub">For ambiguous queries</text>
+
+  <rect x="30"  y="380" width="160" height="60" class="box tool"/>
+  <text x="110" y="405" class="lbl">summarize_text</text>
+  <text x="110" y="423" class="sub">Concise · Detailed · Bullet</text>
+
+  <rect x="210" y="380" width="160" height="60" class="box tool"/>
+  <text x="290" y="405" class="lbl">answer_question</text>
+  <text x="290" y="423" class="sub">5 question types · Context</text>
+
+  <rect x="390" y="380" width="160" height="60" class="box tool"/>
+  <text x="470" y="405" class="lbl">classify_text</text>
+  <text x="470" y="423" class="sub">9 categories · Keyword hints</text>
+
+  <rect x="570" y="380" width="160" height="60" class="box tool"/>
+  <text x="650" y="405" class="lbl">analyze_text</text>
+  <text x="650" y="423" class="sub">Counts · Reading time</text>
+
+  <rect x="750" y="380" width="170" height="60" class="box tool"/>
+  <text x="835" y="405" class="lbl">Structured JSON</text>
+  <text x="835" y="423" class="sub">Status · Hints · Params</text>
+
+  <rect x="350" y="480" width="240" height="55" class="box ext"/>
+  <text x="470" y="504" class="lbl">Gemini 2.5 Flash</text>
+  <text x="470" y="522" class="sub">Google AI Studio API · Formats response</text>
+
+  <path class="arrow" d="M470,70 L470,98"/>
+  <path class="arrow" d="M470,155 L470,183"/>
+  <path class="arrow" d="M470,245 L470,283"/>
+  <path class="arrow" d="M420,245 L130,378" stroke-dasharray="4,3"/>
+  <path class="arrow" d="M440,245 L300,378" stroke-dasharray="4,3"/>
+  <path class="arrow" d="M470,245 L470,378" stroke-dasharray="4,3"/>
+  <path class="arrow" d="M500,245 L640,378" stroke-dasharray="4,3"/>
+  <path class="arrow" d="M420,335 L130,378"/>
+  <path class="arrow" d="M450,335 L300,378"/>
+  <path class="arrow" d="M490,335 L470,378"/>
+  <path class="arrow" d="M520,335 L640,378"/>
+  <path class="arrow" d="M170,440 L420,478"/>
+  <path class="arrow" d="M310,440 L450,478"/>
+  <path class="arrow" d="M470,440 L470,478"/>
+  <path class="arrow" d="M620,440 L490,478"/>
+  <path class="arrow" d="M810,440 L520,478"/>
+</svg>
