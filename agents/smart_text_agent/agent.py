@@ -1,4 +1,37 @@
-from google.adk.agents import Agent
+from __future__ import annotations
+
+import re
+
+from google.adk import Agent
+
+MAX_TEXT_LENGTH = 50_000
+READING_WORDS_PER_MINUTE = 238
+SUMMARY_STYLES = {"concise", "detailed", "bullet"}
+
+
+def _normalize_input(value: str, field_name: str) -> str:
+    """Validate and normalize user-provided text before returning it to the model."""
+    if not isinstance(value, str):
+        raise TypeError(f"{field_name} must be a string")
+    normalized = " ".join(value.split())
+    if not normalized:
+        raise ValueError(f"{field_name} cannot be empty")
+    if len(normalized) > MAX_TEXT_LENGTH:
+        raise ValueError(
+            f"{field_name} exceeds the {MAX_TEXT_LENGTH:,}-character limit"
+        )
+    return normalized
+
+
+def _contains_phrase(text: str, phrase: str) -> bool:
+    """Match complete words or phrases instead of arbitrary substrings."""
+    pattern = rf"(?<!\w){re.escape(phrase.lower())}(?!\w)"
+    return re.search(pattern, text.lower()) is not None
+
+
+def _sentence_count(text: str) -> int:
+    sentences = [part for part in re.split(r"[.!?]+", text) if part.strip()]
+    return max(1, len(sentences))
 
 
 def classify_text(text: str) -> dict:
@@ -14,6 +47,7 @@ def classify_text(text: str) -> dict:
     Returns:
         dict: Contains the text and classification metadata.
     """
+    text = _normalize_input(text, "text")
     word_count = len(text.split())
     keywords = {
         "Technology": ["AI", "software", "app", "computer", "algorithm", "data", "cloud", "machine learning", "GPU", "API", "code", "programming"],
@@ -27,14 +61,13 @@ def classify_text(text: str) -> dict:
     }
 
     detected_hints = {}
-    text_lower = text.lower()
     for category, words in keywords.items():
-        matches = [w for w in words if w.lower() in text_lower]
+        matches = [word for word in words if _contains_phrase(text, word)]
         if matches:
             detected_hints[category] = matches
 
     return {
-        "status": "ready_for_classification",
+        "status": "classification_context_ready",
         "text": text,
         "word_count": word_count,
         "keyword_hints": detected_hints if detected_hints else "No strong keyword matches found, rely on semantic analysis.",
@@ -56,8 +89,15 @@ def summarize_text(text: str, style: str = "concise") -> dict:
     Returns:
         dict: Contains the text and summarization parameters.
     """
+    text = _normalize_input(text, "text")
+    style = style.strip().lower()
+    if style not in SUMMARY_STYLES:
+        raise ValueError(
+            f"style must be one of: {', '.join(sorted(SUMMARY_STYLES))}"
+        )
+
     word_count = len(text.split())
-    sentence_count = text.count('.') + text.count('!') + text.count('?')
+    sentence_count = _sentence_count(text)
 
     if word_count < 20:
         return {
@@ -91,6 +131,13 @@ def answer_question(question: str, context: str = "") -> dict:
     Returns:
         dict: Contains the question, context, and answering parameters.
     """
+    question = _normalize_input(question, "question")
+    context = " ".join(context.split()) if context else ""
+    if len(context) > MAX_TEXT_LENGTH:
+        raise ValueError(
+            f"context exceeds the {MAX_TEXT_LENGTH:,}-character limit"
+        )
+
     question_type = "factual"
     q_lower = question.lower()
     if any(w in q_lower for w in ["why", "how does", "explain", "what causes"]):
@@ -125,18 +172,34 @@ def route_request(request: str) -> dict:
     Returns:
         dict: Contains routing analysis and recommended action.
     """
+    request = _normalize_input(request, "request")
     r_lower = request.lower()
 
     signals = {
-        "summarize": any(w in r_lower for w in ["summarize", "summary", "sum up", "tldr", "shorten", "brief", "condense", "digest"]),
-        "classify": any(w in r_lower for w in ["classify", "categorize", "category", "what type", "what kind", "label", "tag"]),
-        "question": "?" in request or any(w in r_lower for w in ["what is", "how does", "why", "explain", "tell me about", "who is", "when did", "where is"]),
+        "summarize": any(_contains_phrase(r_lower, phrase) for phrase in [
+            "summarize", "summary", "sum up", "tldr", "shorten", "brief",
+            "condense", "digest",
+        ]),
+        "classify": any(_contains_phrase(r_lower, phrase) for phrase in [
+            "classify", "categorize", "category", "what type", "what kind",
+            "label", "tag",
+        ]),
+        "analyze": any(_contains_phrase(r_lower, phrase) for phrase in [
+            "analyze", "word count", "character count", "sentence count",
+            "reading time", "text statistics",
+        ]),
+        "question": "?" in request or any(_contains_phrase(r_lower, phrase) for phrase in [
+            "what is", "how does", "why", "explain", "tell me about",
+            "who is", "when did", "where is",
+        ]),
     }
 
     if signals["summarize"]:
         recommended = "summarize_text"
     elif signals["classify"]:
         recommended = "classify_text"
+    elif signals["analyze"]:
+        recommended = "analyze_text"
     elif signals["question"]:
         recommended = "answer_question"
     else:
@@ -164,11 +227,19 @@ def analyze_text(text: str) -> dict:
     Returns:
         dict: Contains word count, sentence count, character count, and reading time.
     """
-    words = len(text.split())
-    sentences = max(1, text.count('.') + text.count('!') + text.count('?'))
+    text = _normalize_input(text, "text")
+    word_tokens = re.findall(r"\b[\w'-]+\b", text)
+    words = len(word_tokens)
+    sentences = _sentence_count(text)
     characters = len(text)
-    reading_time_seconds = round(words / 4.2)
-    avg_word_length = round(characters / max(1, words), 1)
+    reading_time_seconds = max(
+        1, round(words / READING_WORDS_PER_MINUTE * 60)
+    )
+    letter_count = sum(
+        sum(character.isalnum() for character in word)
+        for word in word_tokens
+    )
+    avg_word_length = round(letter_count / max(1, words), 1)
 
     return {
         "status": "analysis_complete",
@@ -176,7 +247,12 @@ def analyze_text(text: str) -> dict:
         "sentence_count": sentences,
         "character_count": characters,
         "average_word_length": avg_word_length,
-        "estimated_reading_time": f"{reading_time_seconds} seconds" if reading_time_seconds < 60 else f"{round(reading_time_seconds / 60, 1)} minutes",
+        "estimated_reading_time_seconds": reading_time_seconds,
+        "estimated_reading_time": (
+            f"{reading_time_seconds} seconds"
+            if reading_time_seconds < 60
+            else f"{round(reading_time_seconds / 60, 1)} minutes"
+        ),
     }
 
 

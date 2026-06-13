@@ -1,134 +1,180 @@
-# 📝 SmartText Agent — Multi-Capability AI Text Processor
+# SmartText Agent
 
-> Five text-processing capabilities unified under one Gemini-powered agent with intelligent intent routing.
+> A Google ADK tool-calling agent for summarization, question answering,
+> classification assistance, text statistics, and intent routing.
 
-**Live Demo:** https://smart-text-agent-381066349460.us-central1.run.app
+[Live demo](https://smart-text-agent-381066349460.us-central1.run.app) |
+[Architecture](architecture.svg) |
+[Security](SECURITY.md)
 
-Built for the **Google Cloud Gen AI Academy APAC Edition** — Track 1 Submission.
+SmartText Agent demonstrates how a Gemini model can orchestrate small,
+deterministic Python tools through Google Agent Development Kit (ADK). The
+tools validate and prepare user input; Gemini selects a capability and formats
+the final response.
 
----
+Built for the **Google Cloud Gen AI Academy APAC Edition, Track 1**.
 
-## What is SmartText Agent?
+## What It Demonstrates
 
-A multi-capability AI agent built with **Google ADK** and **Gemini 2.5 Flash**. It exposes five tools and uses trigger-word detection plus an explicit `route_request` tool to auto-pick the right capability for ambiguous queries.
+- Google ADK agent and function-tool configuration
+- Gemini function calling with explicit routing instructions
+- Deterministic input validation and structured tool responses
+- Whole-word intent and keyword detection
+- Containerized deployment to Google Cloud Run
+- Offline unit tests and GitHub Actions CI
 
-Ask it anything:
-- *"Summarize: Cloud computing is the delivery of computing services..."*
-- *"What is Kubernetes and why is it used?"*
-- *"Classify: Virat Kohli smashed a brilliant century to guide India to victory."*
-- *"Analyze: The quick brown fox jumps over the lazy dog."*
-- *"Help me with this: Docker containers package applications..."* (auto-routes)
+## Architecture
 
----
+![SmartText Agent architecture](architecture.svg)
 
-## 🏗️ Architecture
+```text
+User request
+    |
+    v
+ADK web interface
+    |
+    v
+Gemini 2.5 Flash agent
+    |
+    +--> summarize_text
+    +--> answer_question
+    +--> classify_text
+    +--> analyze_text
+    `--> route_request --> recommended capability
+```
 
-![SmartText Agent Architecture](https://github.com/VishwasPrabhakara/smart-text-agent/raw/main/architecture.svg)
+## Capabilities
 
----
+| Tool | Deterministic responsibility | Model responsibility |
+|---|---|---|
+| `summarize_text` | Validate input, style, counts, and target length | Write the summary |
+| `answer_question` | Detect question type and attach optional context | Produce the answer |
+| `classify_text` | Find category-specific whole-word keyword hints | Select and explain the category |
+| `analyze_text` | Calculate words, sentences, characters, average word length, and reading time | Format the statistics |
+| `route_request` | Detect intent signals and recommend a tool | Follow through with the selected capability |
 
-## 🔧 Five Capabilities
+The classifier is intentionally hybrid: keyword hints are deterministic, while
+the final semantic classification is performed by Gemini. It is not a trained
+or benchmarked text-classification model.
 
-| Tool | Description | Example |
-|------|-------------|---------|
-| `summarize_text` | Concise (2-3 sentences), detailed (paragraph), or bullet styles. Skips text under 20 words. Reports original vs. summary word count. | `style: "concise" \| "detailed" \| "bullet"` |
-| `answer_question` | Factual, explanatory, comparative, advisory, or enumerative. Optional `context` for grounded answers. Auto-detects question type. | `question, context (optional)` |
-| `classify_text` | 9 categories — Technology, Sports, Politics, Science, Health, Business, Entertainment, Education, Other. Keyword pre-detection helps Gemini reason. | `text` |
-| `analyze_text` | Word count, sentence count, character count, average word length, estimated reading time (words ÷ 4.2 wpm). | `text` |
-| `route_request` | Auto-detects intent from trigger words (summarize / classify / question) and recommends the right tool. The agent then calls it. | `request` |
+## Example Prompts
 
-The agent's system prompt enforces **"ALWAYS call a tool before responding."**
+```text
+Summarize this in bullet points: <long text>
 
----
+What is Kubernetes and when should a team use it?
 
-## 🛠️ Tech Stack
+Classify this text: The company reported record quarterly revenue.
 
-- **google-adk** (`==1.14.0`) — Agent Development Kit, tool framework
-- **Gemini 2.5 Flash** (`gemini-2.5-flash`) — function calling + response generation
-- **Python 3.11**
-- **Docker** — `python:3.11-slim` base
-- **Google Cloud Run** — serverless, scale-to-zero
-- **Cloud Build + Artifact Registry** — CI/CD
+Analyze this paragraph and estimate its reading time.
+```
 
----
+## Run Locally
 
-## 🚀 Run Locally
+Requirements:
 
-### Prerequisites
 - Python 3.11+
-- Gemini API key from [Google AI Studio](https://aistudio.google.com/apikey)
+- A Gemini API key from [Google AI Studio](https://aistudio.google.com/apikey)
 
-### Setup
-```bash
+```powershell
 git clone https://github.com/VishwasPrabhakara/smart-text-agent.git
 cd smart-text-agent
 
+python -m venv .venv
+.\.venv\Scripts\Activate.ps1
+python -m pip install --upgrade pip
 pip install -r requirements.txt
 
-# Create .env (used by ADK to pick up the key)
-cat > .env <<EOF
-GOOGLE_API_KEY=your_key_here
-GOOGLE_GENAI_USE_VERTEXAI=FALSE
-EOF
+Copy-Item .env.example .env
+# Add GOOGLE_API_KEY to .env
 
-adk web --port 8000 --host 0.0.0.0 .
+adk web --port 8000 --host 127.0.0.1 agents
 ```
 
-Open `http://localhost:8000` and pick `smart_text_agent` in the dropdown.
+Open `http://127.0.0.1:8000` and select `smart_text_agent`.
 
----
+The ADK web UI is a development and demonstration interface. Add a dedicated
+frontend, authentication, rate limiting, and production observability before
+using the service for sensitive or public workloads.
 
-## 🐳 Deploy to Cloud Run
+## Tests
 
-The repo uses the ADK CLI's built-in Cloud Run deploy:
+The automated suite tests tool contracts without making Gemini API calls:
 
-```bash
-gcloud config set project YOUR_PROJECT_ID
-
-uvx --from google-adk==1.14.0 adk deploy cloud_run \
-  --project=$PROJECT_ID \
-  --region=us-central1 \
-  --service_name=smart-text-agent \
-  --with_ui .
+```powershell
+pip install -r requirements-dev.txt
+pytest
 ```
 
-The deployed service URL is printed after deployment. Make sure `GOOGLE_API_KEY` and `GOOGLE_GENAI_USE_VERTEXAI=FALSE` are set as env vars on the Cloud Run service.
+These tests verify routing, validation, keyword boundaries, statistics, and
+agent tool registration. They do not measure final LLM response quality or
+tool-selection accuracy. A model-level ADK evaluation set is future work; no
+evaluation scores are claimed here.
 
----
+## Docker
 
-## 📁 Project Structure
-
+```powershell
+docker build -t smart-text-agent .
+docker run --rm -p 8080:8080 --env-file .env smart-text-agent
 ```
+
+The container runs as a non-root user and respects the `PORT` environment
+variable.
+
+## Cloud Run
+
+Google recommends the ADK deployment command for Python agents:
+
+```powershell
+adk deploy cloud_run `
+  --project=YOUR_PROJECT_ID `
+  --region=us-central1 `
+  --service_name=smart-text-agent `
+  --with_ui `
+  agents/smart_text_agent
+```
+
+`--with_ui` is appropriate for this public demonstration, but Google documents
+the bundled UI as a development/testing surface. Store credentials in Cloud Run
+configuration or Secret Manager rather than in the image.
+
+## Limitations
+
+- Responses depend on Gemini and may be incorrect or inconsistent.
+- Classification categories are fixed and have not been benchmarked.
+- Keyword routing is rule-based and supports only the documented intents.
+- User text is sent to Gemini; the application does not perform redaction.
+- The repository does not include application authentication, persistent
+  sessions, rate limiting, or production monitoring.
+- Cloud Run may scale to zero, so the live demo can have a cold-start delay.
+
+## Project Structure
+
+```text
 smart-text-agent/
-├── Dockerfile
-├── requirements.txt        # google-adk==1.14.0
-├── README.md
-├── architecture.svg
-├── .env                    # GOOGLE_API_KEY (not committed)
-└── smart_text_agent/
-    ├── __init__.py         # exports root_agent
-    └── agent.py            # 5 tool functions + Gemini agent definition
+|-- .github/workflows/tests.yml
+|-- agents/
+|   `-- smart_text_agent/
+|       |-- __init__.py
+|       `-- agent.py
+|-- tests/
+|   |-- test_agent.py
+|   `-- test_tools.py
+|-- .env.example
+|-- architecture.svg
+|-- Dockerfile
+|-- requirements.txt
+|-- requirements-dev.txt
+`-- SECURITY.md
 ```
 
----
+## Author
 
-## 💡 How It Works
+**Vishwas Prabhakara**
 
-1. **User sends a query** via the ADK web UI
-2. **Gemini 2.5 Flash** reads the system prompt's trigger-word rules and picks a tool
-3. **The tool function** runs deterministic prep (word counts, keyword hints, question-type detection) and returns structured JSON
-4. **For ambiguous queries:** `route_request` is called first → returns `recommended_tool` → the agent then calls that tool
-5. **Gemini formats the structured result** into a clean, prose response
+[GitHub](https://github.com/VishwasPrabhakara) |
+[LinkedIn](https://www.linkedin.com/in/vishwas-prabhakara)
 
-The deterministic-prep + LLM-formatting split keeps classifications consistent and analyses accurate, while letting Gemini handle the natural-language packaging.
+## License
 
----
-
-## 📝 Built For
-
-Google Cloud Gen AI Academy APAC Edition — Track 1 Submission
-**Built by:** Vishwas Prabhakara
-
-## 📄 License
-
-MIT
+[Apache-2.0](LICENSE)
